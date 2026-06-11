@@ -81,7 +81,7 @@ def find_phrase_candidates(ocr: List[Dict[str, Any]], tokens: List[str]) -> List
                 continue
             if not is_near_next(prev, b):
                 continue
-            # candidate must stay compact horizontally/vertically
+
             test = path + [b]
             x1, y1, x2, y2 = union(test)
             if x2 - x1 <= 450 and y2 - y1 <= 140:
@@ -102,13 +102,16 @@ def find_phrase_candidates(ocr: List[Dict[str, Any]], tokens: List[str]) -> List
 
 
 def find_table_headers(ocr: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Ищет headers товарной таблицы.
+    Выбирается группа headers, которая расположена в одной области документа
+    и соответствует ожидаемому порядку колонок.
+    """
     candidates = {name: find_phrase_candidates(ocr, phrase) for name, phrase in SOURCE_HEADERS.items()}
     missing = [name for name, values in candidates.items() if not values]
     if missing:
         raise ValueError(f"Не найдены header-фразы: {missing}")
 
-    # Берём такую комбинацию headers, где все они лежат на одной горизонтальной полосе
-    # и идут слева направо: Quote Line No. -> Ord Qty -> Ord Uom -> Item Description -> Price.
     best: Optional[Tuple[int, Dict[str, List[Dict[str, Any]]]]] = None
 
     def rec(i: int, chosen: Dict[str, List[Dict[str, Any]]]) -> None:
@@ -142,6 +145,10 @@ def find_table_headers(ocr: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, An
 
 
 def make_source_columns(headers: Dict[str, List[Dict[str, Any]]], ocr: List[Dict[str, Any]]) -> Dict[str, Tuple[int, int]]:
+    """
+       Строит границы колонок по координатам найденных headers.
+       Это позволяет не использовать фиксированные координаты таблицы.
+    """
     centers = [center_x(headers[n]) for n in SOURCE_ORDER]
     left_gap = centers[1] - centers[0]
     right_gap = centers[-1] - centers[-2]
@@ -152,7 +159,6 @@ def make_source_columns(headers: Dict[str, List[Dict[str, Any]]], ocr: List[Dict
 
     cols = {name: (boundaries[i], boundaries[i + 1]) for i, name in enumerate(SOURCE_ORDER)}
 
-    # Правую границу price расширяем до самой правой цены/валюты ниже header, иначе Unit Price может выпасть.
     _, header_top, _, header_bottom = union([b for boxes in headers.values() for b in boxes])
     price_left, price_right = cols["price"]
     price_words = [b for b in ocr if int(b["y"]) > header_bottom and int(b["x"]) >= price_left - 30]
@@ -182,7 +188,7 @@ def is_int_value(s: str) -> bool:
 
 
 def is_uom(s: str) -> bool:
-    return s.strip().upper() in {"PC", "PCS", "EA", "UNIT", "UN", "ST"}
+    return s.strip().upper() in {"PC"}
 
 
 def is_price(s: str) -> bool:
@@ -195,7 +201,7 @@ def normalize_price(s: str) -> str:
 
 
 def find_table_bottom(ocr: List[Dict[str, Any]], header_bottom: int) -> int:
-    # Конец товарной таблицы ищем по текстовому маркеру totals, а не по координатам.
+    # Определяет конец товарной таблицы по блоку итогов (Quote Total).
     quote_total_y = []
     for b in ocr:
         if norm(text(b)) == "quote" and int(b["y"]) > header_bottom:
@@ -206,6 +212,7 @@ def find_table_bottom(ocr: List[Dict[str, Any]], header_bottom: int) -> int:
 
 
 def find_row_tops(ocr: List[Dict[str, Any]], cols: Dict[str, Tuple[int, int]], header_bottom: int, table_bottom: int) -> List[int]:
+    #Находит начало каждой товарной строки по номерам позицийв первой колонке таблицы.
     pos_x1, pos_x2 = cols["position"]
     tops = []
     for b in ocr:
@@ -233,12 +240,8 @@ def parse_description(description: str) -> Tuple[str, str]:
     return vendor, model
 
 
-def extract_unit_price(
-    ocr: List[Dict[str, Any]],
-    price_range: Tuple[int, int],
-    y1: int,
-    y2: int,
-) -> str:
+def extract_unit_price(ocr: List[Dict[str, Any]], price_range: Tuple[int, int], y1: int, y2: int, ) -> str:
+    # Извлекает цену товара из блока Price. Используется значение после "Unit Price".
     boxes = words_in_rect(ocr, price_range[0], price_range[1], y1, y2)
 
     boxes = sorted(boxes, key=lambda b: (int(b["y"]), int(b["x"])))
@@ -281,6 +284,7 @@ def make_cell(x: int, y: int, w: int, h: int, content: str, column_id: int, row_
 
 
 def build_target_columns(cols: Dict[str, Tuple[int, int]], row_text_boxes: List[List[Dict[str, Any]]]) -> List[Tuple[int, int]]:
+    #Формирует итоговые колонки JSON.
     desc_x1, desc_x2 = cols["description"]
     splits = []
     for boxes in row_text_boxes:
@@ -299,7 +303,6 @@ def build_table(ocr: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     table_bottom = find_table_bottom(ocr, header_bottom)
     row_tops = find_row_tops(ocr, cols, header_bottom, table_bottom)
 
-    # Собираем description-боксы заранее, чтобы split Vendor/Model был тоже от данных, а не от пикселей.
     desc_boxes_by_row = []
     for i, row_top in enumerate(row_tops):
         row_bottom = row_tops[i + 1] if i + 1 < len(row_tops) else table_bottom

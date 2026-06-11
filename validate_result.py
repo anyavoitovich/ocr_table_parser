@@ -34,7 +34,8 @@ def load_result_json(path: Path) -> List[Dict[str, Any]]:
     return data
 
 
-def table_from_json_cells(cells: List[Dict[str, Any]]) -> List[List[str]]:
+def table_from_json_cells(cells: List[Dict[str, Any]]) -> List[List[str]]: #Собирает обычную таблицу из JSON-ячеек.
+
     max_row = max(cell["row_id"] for cell in cells)
     max_col = max(cell["column_id"] for cell in cells)
 
@@ -51,11 +52,9 @@ def table_from_json_cells(cells: List[Dict[str, Any]]) -> List[List[str]]:
     return table
 
 
-def validate_against_csv(
-    cells: List[Dict[str, Any]],
-    csv_headers: List[str],
-    csv_rows: List[List[str]],
-) -> Dict[str, Any]:
+def validate_against_csv(cells: List[Dict[str, Any]], csv_headers: List[str], csv_rows: List[List[str]],) -> Dict[str, Any]:
+    #Сравнивает результат парсинга с эталонным CSV.
+
     actual_table = table_from_json_cells(cells)
     expected_table = [csv_headers] + csv_rows
 
