@@ -1,0 +1,56 @@
+{
+  "passed": true,
+  "expected_table": [
+    [
+      "Position",
+      "Quantity",
+      "UOM",
+      "Vendor name",
+      "Model name",
+      "Unit price"
+    ],
+    [
+      "1",
+      "3",
+      "PC",
+      "Samsung",
+      "S20",
+      "780.00"
+    ],
+    [
+      "2",
+      "5",
+      "PC",
+      "Samsung",
+      "S22",
+      "1299.00"
+    ]
+  ],
+  "actual_table": [
+    [
+      "Position",
+      "Quantity",
+      "UOM",
+      "Vendor name",
+      "Model name",
+      "Unit price"
+    ],
+    [
+      "1",
+      "3",
+      "PC",
+      "Samsung",
+      "S20",
+      "780.00"
+    ],
+    [
+      "2",
+      "5",
+      "PC",
+      "Samsung",
+      "S22",
+      "1299.00"
+    ]
+  ],
+  "errors": []
+}
