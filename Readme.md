@@ -2,6 +2,12 @@
 
 Extracts purchased items from OCR results and saves them as JSON.
 
+## Approach
+
+The table is detected using header labels rather than fixed coordinates.
+
+Column boundaries are reconstructed from detected headers, and product rows are extracted dynamically from the OCR output.
+
 ## Run locally
 
 ```bash
